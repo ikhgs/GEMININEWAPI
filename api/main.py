@@ -27,7 +27,7 @@ model = genai.GenerativeModel(
     generation_config=generation_config,
 )
 
-@app.route('/api/gemini', methods=['POST'])
+@app.route('/api/process', methods=['POST'])
 def process_image_and_prompt():
     if 'image' not in request.files or 'prompt' not in request.form:
         return jsonify({"error": "Image and prompt are required."}), 400
@@ -35,8 +35,13 @@ def process_image_and_prompt():
     image = request.files['image']
     prompt = request.form['prompt']
 
-    # Save the image to a temporary location
-    image_path = "/mnt/data/" + image.filename
+    # Création du répertoire si nécessaire
+    save_dir = "/mnt/data/"
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Save the image to the specified directory
+    image_path = os.path.join(save_dir, image.filename)
     image.save(image_path)
 
     # Upload the image to Gemini
@@ -61,4 +66,3 @@ def process_image_and_prompt():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-    
