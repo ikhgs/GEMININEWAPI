@@ -1,4 +1,5 @@
 import os
+import tempfile
 from flask import Flask, request, jsonify
 import google.generativeai as genai
 
@@ -35,32 +36,31 @@ def process_image_and_prompt():
     image = request.files['image']
     prompt = request.form['prompt']
 
-    # Création du répertoire si nécessaire
-    save_dir = "/mnt/data/"
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+        image_path = temp_file.name
+        image.save(image_path)
 
-    # Save the image to the specified directory
-    image_path = os.path.join(save_dir, image.filename)
-    image.save(image_path)
+        # Upload the image to Gemini
+        file_uri = upload_to_gemini(image_path, mime_type=image.mimetype)
 
-    # Upload the image to Gemini
-    file_uri = upload_to_gemini(image_path, mime_type=image.mimetype)
+        # Create the chat session with the image and prompt
+        chat_session = model.start_chat(
+            history=[
+                {
+                    "role": "user",
+                    "parts": [
+                        file_uri,
+                        prompt,
+                    ],
+                },
+            ]
+        )
 
-    # Create the chat session with the image and prompt
-    chat_session = model.start_chat(
-        history=[
-            {
-                "role": "user",
-                "parts": [
-                    file_uri,
-                    prompt,
-                ],
-            },
-        ]
-    )
+        response = chat_session.send_message(prompt)
 
-    response = chat_session.send_message(prompt)
+    # Clean up temporary file
+    os.remove(image_path)
 
     return jsonify({"response": response.text})
 
